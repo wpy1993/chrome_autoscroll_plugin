@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        width: 300px;
+        min-height: 200px;
+        margin: 0;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      .header p {
+        margin: 5px 0 0 0;
+        font-size: 14px;
+        opacity: 0.8;
+      }
+
+      .controls {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .speed-control {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .speed-control label {
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .speed-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.3);
+        outline: none;
+      }
+
+      .speed-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: white;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+      }
+
+      .speed-value {
+        text-align: center;
+        font-size: 12px;
+        opacity: 0.8;
+      }
+
+      .shortcuts {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 10px;
+      }
+
+      .shortcuts h3 {
+        margin: 0 0 10px 0;
+        font-size: 16px;
+        font-weight: 500;
+      }
+
+      .shortcuts ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .shortcuts li {
+        font-size: 13px;
+        margin-bottom: 5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .shortcut-key {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-family: monospace;
+      }
+
+      .status {
+        text-align: center;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        font-size: 14px;
+      }
+
+      .footer {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 12px;
+        opacity: 0.7;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>页面自动滚动</h1>
+      <p>智能识别页面高度，匀速滚动</p>
+    </div>
+
+    <div class="controls">
+      <div class="speed-control">
+        <label for="speed-slider">滚动速度</label>
+        <input type="range" id="speed-slider" class="speed-slider" min="0.5" max="5" step="0.5" value="1" />
+        <div class="speed-value">当前速度: <span id="speed-display">1</span> 像素/帧</div>
+      </div>
+
+      <div class="status" id="status">点击悬浮球开始滚动</div>
+    </div>
+
+    <div class="shortcuts">
+      <h3>使用说明</h3>
+      <ul>
+        <li>
+          <span>点击悬浮球</span>
+          <span class="shortcut-key">启动/停止</span>
+        </li>
+        <li>
+          <span>拖拽悬浮球</span>
+          <span class="shortcut-key">调整位置</span>
+        </li>
+        <li>
+          <span>快捷键</span>
+          <span class="shortcut-key">Ctrl+Shift+S</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer">
+      <p>© 2024 页面自动滚动扩展</p>
+    </div>
+
+    <script>
+      // 滚动速度控制
+      const speedSlider = document.getElementById("speed-slider");
+      const speedDisplay = document.getElementById("speed-display");
+      const status = document.getElementById("status");
+
+      speedSlider.addEventListener("input", (e) => {
+        const speed = e.target.value;
+        speedDisplay.textContent = speed;
+
+        // 向当前页面发送速度更新消息
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: "updateSpeed",
+            speed: parseFloat(speed),
+          });
+        });
+      });
+
+      // 检查扩展状态
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "getStatus" }, (response) => {
+          if (response && response.isScrolling) {
+            status.textContent = "正在自动滚动中...";
+            status.style.background = "rgba(255, 107, 107, 0.3)";
+          }
+        });
+      });
+
+      // 监听来自content script的状态更新
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.action === "statusUpdate") {
+          if (message.isScrolling) {
+            status.textContent = "正在自动滚动中...";
+            status.style.background = "rgba(255, 107, 107, 0.3)";
+          } else {
+            status.textContent = "点击悬浮球开始滚动";
+            status.style.background = "rgba(255, 255, 255, 0.1)";
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
