@@ -3,21 +3,12 @@
   "name": "页面自动滚动",
   "version": "1.0",
   "description": "提供页面自动滚动功能的Chrome扩展",
-  "permissions": [
-    "activeTab",
-    "scripting"
-  ],
+  "permissions": ["activeTab", "scripting", "storage"],
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "css": [
-        "styles.css"
-      ],
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
       "run_at": "document_end"
     }
   ],

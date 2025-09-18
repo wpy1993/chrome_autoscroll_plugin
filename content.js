@@ -9,7 +9,33 @@ class AutoScroller {
     this.maxHeight = 0;
     this.currentPosition = 0;
 
-    this.init();
+    // 从存储加载设置
+    this.loadSettings().then(() => {
+      this.init();
+    });
+  }
+
+  // 加载存储的设置
+  async loadSettings() {
+    try {
+      const result = await chrome.storage.sync.get(["scrollSpeed"]);
+      if (result.scrollSpeed) {
+        this.scrollSpeed = result.scrollSpeed;
+      }
+    } catch (error) {
+      console.log("无法加载设置，使用默认值");
+    }
+  }
+
+  // 保存设置到存储
+  async saveSettings() {
+    try {
+      await chrome.storage.sync.set({
+        scrollSpeed: this.scrollSpeed,
+      });
+    } catch (error) {
+      console.log("无法保存设置");
+    }
   }
 
   init() {
@@ -17,6 +43,10 @@ class AutoScroller {
     this.createFloatingBall();
     // 监听页面变化
     this.observePageChanges();
+    // 设置键盘快捷键
+    this.setupKeyboardShortcuts();
+    // 设置消息监听器
+    this.setupMessageListener();
   }
 
   createFloatingBall() {
@@ -122,6 +152,7 @@ class AutoScroller {
     this.isScrolling = true;
     this.currentPosition = window.pageYOffset;
     this.updateBallState();
+    this.sendStatusUpdate(); // 发送状态更新
 
     this.scrollInterval = setInterval(() => {
       this.currentPosition += this.scrollSpeed;
@@ -149,6 +180,7 @@ class AutoScroller {
       this.scrollInterval = null;
     }
     this.updateBallState();
+    this.sendStatusUpdate(); // 发送状态更新
     this.showMessage("停止滚动");
   }
 
@@ -214,13 +246,69 @@ class AutoScroller {
       }
     });
   }
+
+  // 监听来自popup的消息
+  setupMessageListener() {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log("Content script收到消息:", message);
+
+      try {
+        if (message.action === "updateSpeed") {
+          this.scrollSpeed = message.speed;
+          this.saveSettings(); // 保存到存储
+          this.showMessage(`滚动速度已调整为 ${message.speed} 像素/帧`);
+          sendResponse({ success: true });
+          console.log("速度已更新为:", this.scrollSpeed);
+        } else if (message.action === "getStatus") {
+          const statusResponse = {
+            isScrolling: this.isScrolling,
+            scrollSpeed: this.scrollSpeed,
+            maxHeight: this.maxHeight,
+            currentPosition: this.currentPosition,
+          };
+          console.log("发送状态响应:", statusResponse);
+          sendResponse(statusResponse);
+        } else if (message.action === "toggleScroll") {
+          this.toggleScroll();
+          sendResponse({
+            isScrolling: this.isScrolling,
+          });
+        }
+      } catch (error) {
+        console.error("处理消息时出错:", error);
+        sendResponse({ error: error.message });
+      }
+
+      // 返回true表示异步响应
+      return true;
+    });
+  }
+
+  // 向popup发送状态更新
+  sendStatusUpdate() {
+    try {
+      chrome.runtime.sendMessage({
+        action: "statusUpdate",
+        isScrolling: this.isScrolling,
+        scrollSpeed: this.scrollSpeed,
+        maxHeight: this.maxHeight,
+        currentPosition: this.currentPosition,
+      });
+    } catch (error) {
+      // 忽略错误，popup可能已关闭
+    }
+  }
 }
 
 // 页面加载完成后初始化
+console.log("Content script开始执行");
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
-    new AutoScroller();
+    console.log("DOM加载完成，初始化AutoScroller");
+    window.autoScroller = new AutoScroller();
   });
 } else {
-  new AutoScroller();
+  console.log("DOM已就绪，立即初始化AutoScroller");
+  window.autoScroller = new AutoScroller();
 }
